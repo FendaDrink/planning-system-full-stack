@@ -12,6 +12,7 @@ const loginRouter = require('./routes/login');
 const publicInfoRouter = require('./routes/publicInfo');
 const engineRouter = require('./routes/engine');
 const colorRouter = require('./routes/color');
+const carRouter = require('./routes/car');
 
 const app = express();
 
@@ -60,6 +61,7 @@ app.use('/login', loginRouter);
 app.use('/publicInfo', publicInfoRouter);
 app.use('/engine',engineRouter);
 app.use('/color',colorRouter);
+app.use('/car',carRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
