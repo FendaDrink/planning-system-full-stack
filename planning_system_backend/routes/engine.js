@@ -71,6 +71,23 @@ const updateDetail = async (req, res) => {
     const {key,code,stall,name} = req.body;
     const query = 'UPDATE engine_detail SET `code` = ?,`stall` = ?,`name` = ? WHERE `key` = ?';
     try{
+        const queryRepeat = 'SELECT * FROM engine_detail WHERE `code`=?';
+        const rowsRepeat = await pool.query(queryRepeat,[code]);
+        if (rowsRepeat[0].length>1){
+            return res.status(400).json({
+                msg:'特殊发动机代码重复',
+                code:400,
+                data:''
+            })
+        }
+    }catch (err){
+        res.status(500).json({
+            msg:'数据库错误',
+            code:500,
+            data:err.message
+        })
+    }
+    try{
         await pool.query(query,[code,stall,name,key]);
         res.status(200).json({
             msg:'操作成功',
