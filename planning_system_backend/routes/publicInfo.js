@@ -119,6 +119,25 @@ const getSpecialByKey = async (req,res) => {
 /* 修改生产线特殊信息 */
 const updateSpecial = async (req,res) =>{
     const {key,value} = req.body;
+    if(value!==''){
+        try{
+            const queryRepeat = 'SELECT * FROM special WHERE `value` = ?';
+            const rowsRepeat = await pool.query(queryRepeat,[value]);
+            if(rowsRepeat[0].length !== 0 ){
+                return res.status(400).json({
+                    msg:'特殊信息重复',
+                    code:400,
+                    data:''
+                })
+            }
+        }catch (err){
+            return res.status(500).json({
+                msg:"数据库错误",
+                code:500,
+                data: err.message
+            })
+        }
+    }
     const query = 'UPDATE special SET value = ? WHERE `key` = ?';
     try{
         const rows = await pool.query(query,[value,key])
@@ -187,7 +206,22 @@ const updateRecord = async (req,res) =>{
     const {key,code,type,name,classes,speed,efficiency,group,flow,simple} = req.body;
     const query = 'UPDATE public_detail SET `code` = ?,`type` = ?,`name` = ?,`classes` = ?,`speed` = ?,`efficiency` = ?,`group` = ?,`flow` = ?,`simple` = ? WHERE `key` = ?';
     const queryType = 'SELECT * FROM public_detail WHERE `key` = ?';
-
+    const queryRepeat = 'SELECT * FROM public_detail WHERE `code` = ?';
+    try{
+        const rowsRepeat = await pool.query(queryRepeat,[code]);
+        if(rowsRepeat[0].length>1) return res.status(400).json({
+            msg:'生产编号已存在',
+            code:400,
+            data:""
+        })
+    }catch (err){
+        // 返回错误响应
+        return res.status(500).json({
+            msg:'数据库错误',
+            code:500,
+            data:err.message
+        })
+    }
     try{
         const row = await pool.query(queryType,[key]);
         const oldType = row[0][0].type;
@@ -209,7 +243,6 @@ const updateRecord = async (req,res) =>{
             data:""
         })
     }catch (err){
-        console.log(err);
         // 返回错误响应
         return res.status(500).json({
             msg:'数据库错误',

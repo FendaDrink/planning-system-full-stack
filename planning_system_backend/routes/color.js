@@ -46,11 +46,11 @@ const addDetail = async (req, res) => {
     const key = uuid.v1();
     // 插入语句
     const query = 'INSERT INTO color_detail (`key`,code,name,color) VALUES (?,?,?,?)';
-    // 判断生产线编号是否重复
+    // 判断颜色码编号是否重复
     const queryCode = 'SELECT * FROM color_detail WHERE `code` = ?';
     try{
         let rowsRepeat = await pool.query(queryCode,[code]);
-        if(rowsRepeat[0].length>0) throw new Error('生产线编号重复');
+        if(rowsRepeat[0].length>0) throw new Error('颜色码重复');
         await pool.query(query,[key,code,name,color]);
         res.status(200).json({
             msg:'操作成功',
@@ -70,6 +70,23 @@ const addDetail = async (req, res) => {
 const updateDetail = async (req, res) => {
     const {key,code,name,color} = req.body;
     const query = 'UPDATE color_detail SET `code` = ?,`name` = ?,`color` = ? WHERE `key` = ?';
+    try{
+        const queryRepeat = 'SELECT * FROM color_detail WHERE `code`=?';
+        const rowsRepeat = await pool.query(queryRepeat,[code]);
+        if (rowsRepeat[0].length>1){
+            return res.status(400).json({
+                msg:'颜色码重复',
+                code:400,
+                data:''
+            })
+        }
+    }catch (err){
+        res.status(500).json({
+            msg:'数据库错误',
+            code:500,
+            data:err.message
+        })
+    }
     try{
         await pool.query(query,[code,name,color,key]);
         res.status(200).json({
