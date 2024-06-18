@@ -24,7 +24,7 @@ const login =  async (req, res) => {
       const token = jwt.sign({
         username: username,
       }, secretKey, {
-        expiresIn: '900s'
+        expiresIn: '1800s'
       });
       return res.status(200).json({
         msg:'操作成功',

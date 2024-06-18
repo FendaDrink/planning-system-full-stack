@@ -40,7 +40,7 @@ const getTitleAndDetail = async (req, res) => {
     }
 }
 
-/* 增加特殊发动机数据记录 */
+/* 增加计划用颜色数据记录 */
 const addDetail = async (req, res) => {
     const {code,name,color} = req.body;
     const key = uuid.v1();
@@ -66,7 +66,7 @@ const addDetail = async (req, res) => {
     }
 }
 
-/* 修改特殊发动机数据记录 */
+/* 修改计划用颜色数据记录 */
 const updateDetail = async (req, res) => {
     const {key,code,name,color} = req.body;
     const query = 'UPDATE color_detail SET `code` = ?,`name` = ?,`color` = ? WHERE `key` = ?';
@@ -103,7 +103,7 @@ const updateDetail = async (req, res) => {
     }
 }
 
-/* 删除特殊发动机数据记录 */
+/* 删除计划用颜色数据记录 */
 const deleteDetail = async (req, res) => {
     const key = req.params.key;
     const queryDetail = 'DELETE FROM color_detail WHERE `key` = ?';
