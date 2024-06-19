@@ -2,7 +2,9 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config');
 const auth = require('../middleware/auth');
-
+const upload = require('../middleware/upload');
+const xlsx = require('xlsx'); // 引入 xlsx 模块
+const fs = require('fs');
 /* 获取订单车标题和详情 */
 const getTitleAndDetail = async (req, res) => {
     const queryTitle = `SELECT title,dataIndex,width FROM car_title`;
@@ -39,12 +41,80 @@ const getTitleAndDetail = async (req, res) => {
     }
 }
 
+/* 通过orderId获取公共信息列表 */
+const getDetailByOrderId = async (req, res) =>{
+    const orderId = req.params.orderId;
+    const queryDetail = 'SELECT * FROM car_detail WHERE `orderId` = ?';
+    const queryTitle = 'SELECT * FROM car_title';
+    const resultQuery = {};
+    try{
+        // 查询标题信息
+        const rows1 = await pool.query(queryTitle);
+        const titles = JSON.parse(JSON.stringify(rows1[0]))
+        titles.forEach((item)=>{
+            resultQuery[item.dataIndex] = item.title
+        })
+
+        // 查询详情信息
+        const rows2 = await pool.query(queryDetail,[orderId])
+        const obj = JSON.parse(JSON.stringify(rows2[0]))[0];
+        const resultArr = [];
+
+        // 构造结果数组
+        const itemArr = Object.keys(obj);
+        itemArr.shift();
+        for(let key of itemArr){
+            resultArr.push({
+                title:resultQuery[key],
+                value:obj[key]
+            })
+        }
+        resultArr.unshift({
+            title:'订单编号',
+            value:orderId
+        })
+        // 返回成功响应
+        return res.status(200).json({
+            msg:'操作成功',
+            code:200,
+            data:resultArr
+        })
+    }catch (err){
+        // 返回错误响应
+        return res.status(500).json({
+            msg:"数据库错误",
+            code:500,
+            data: err.message
+        })
+    }
+}
+
 /* 新增订单车信息记录 */
 const addDetail = async (req,res)=>{
-    const {orderId, year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark,} = req.body
+    let {orderId, year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark,} = req.body
     const query = `INSERT INTO car_detail (orderId, year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?)`;
     try {
         await pool.query(query,[orderId, year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark])
+        res.status(200).json({
+            msg:'操作成功',
+            code:200,
+            data:""
+        })
+    }catch (err){
+        res.status(500).json({
+            msg:'数据库错误',
+            code:500,
+            data:err.message
+        })
+    }
+}
+
+/* 修改订单车信息记录 */
+const updateDetail = async (req,res)=>{
+    const {orderId, year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark} = req.body
+    const query = `UPDATE car_detail SET year = ?, inTime = ?, type = ?, airCode = ?, colorCode = ?, batchNum = ?, carNum = ?, varietyCode = ?, carCode = ?, stall = ?, engineCode = ?, customer = ?, orderBatchNum = ?, requirements = ?, remark = ? WHERE orderId = ?`;
+    try {
+        await pool.query(query,[year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark, orderId])
         res.status(200).json({
             msg:'操作成功',
             code:200,
@@ -78,12 +148,86 @@ const deleteDetail = async (req,res)=>{
         })
     }
 }
+
+/* 文件上传 */
+const uploadFile = async (req, res) => {
+    try{
+        console.log(req.file)
+        if (!req.file) {
+            return res.status(400).json({
+                msg: 'No file uploaded',
+                code: 400,
+                data: null
+            });
+        }
+
+        // 读取上传的 xls 文件
+        const filePath = req.file.path;
+        const workbook = xlsx.readFile(filePath);
+        const sheetName = workbook.SheetNames[0]; // 假设只有一个工作表
+        const worksheet = workbook.Sheets[sheetName];
+        const tableData = xlsx.utils.sheet_to_json(worksheet,{
+            raw:false,
+            dateNF:'yyyy-mm-dd'
+        });
+        const year = tableData[0]['__EMPTY_3'];
+        const orderBatchNum = tableData[0]['__EMPTY'];
+        const result = [];
+        for(let i = 2; i < tableData.length; i++){
+            let item = tableData[i];
+            const varietyCode = item['__EMPTY'].slice(0,4);
+            const engineCode = item['__EMPTY'].slice(4,6);
+            const stall = item['__EMPTY'].slice(6,7);
+            const colorCode = item['__EMPTY'].slice(7,9);
+            result.push({
+                orderId:'0'+year+item['__EMPTY_4'],
+                year:year,
+                inTime:item['__EMPTY_5'],
+                type:item['订单车计划模板'],
+                airCode:item['__EMPTY_7'],
+                colorCode:colorCode,
+                batchNum:item['__EMPTY_4'],
+                carNum:item['__EMPTY_1'],
+                varietyCode:varietyCode,
+                carCode:item['__EMPTY_8'],
+                stall:stall,
+                engineCode:engineCode,
+                customer:item['__EMPTY_3'],
+                orderBatchNum:orderBatchNum,
+                requirements:item['__EMPTY_2'],
+                remark:item['__EMPTY_6']
+        })
+        }
+        // 可以在这里对读取到的数据进行进一步处理
+        fs.unlinkSync(filePath); // 删除上传的文件
+
+        return res.status(200).json({
+            msg: 'File uploaded successfully and processed',
+            code: 200,
+            data: result
+        });
+
+    }catch (err){
+        console.log(err);
+    }
+};
+
 /* 获取计划用颜色配置标题和详情 */
 router.get('/',auth,getTitleAndDetail);
+
+/* 通过orderId获取公共信息列表 */
+router.get('/:orderId',auth,getDetailByOrderId);
+
+/* 文件上传 */
+router.post('/upload',auth,upload.single('file'),uploadFile);
 
 /* 新增订单车信息记录 */
 router.post('/',auth,addDetail);
 
+/* 修改订单车信息记录 */
+router.patch('/',auth,updateDetail);
+
 /* 删除订单车信息记录 */
 router.delete('/:orderId',auth,deleteDetail);
+
 module.exports = router;
