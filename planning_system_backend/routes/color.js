@@ -69,6 +69,23 @@ const addDetail = async (req, res) => {
 /* 修改计划用颜色数据记录 */
 const updateDetail = async (req, res) => {
     const {key,code,name,color} = req.body;
+    const queryRepeat = 'SELECT * FROM color_detail WHERE `code`=?';
+    try{
+        const rowsRepeat = await pool.query(queryRepeat,[code]);
+        if (rowsRepeat[0].length!==0){
+            return res.status(400).json({
+                msg:'颜色码重复',
+                code:400,
+                data:''
+            })
+        }
+    }catch (err){
+        return res.status(500).json({
+            msg:'数据库错误',
+            code:500,
+            data:err.message
+        })
+    }
     const query = 'UPDATE color_detail SET `code` = ?,`name` = ?,`color` = ? WHERE `key` = ?';
     try{
         const queryRepeat = 'SELECT * FROM color_detail WHERE `code`=?';

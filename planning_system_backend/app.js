@@ -44,8 +44,6 @@ app.use((req, res, next) => {
       console.error('Failed to insert operation log:', error);
     }
   })
-
-
   next(); // 继续处理下一个中间件或路由处理程序
 });
 

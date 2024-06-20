@@ -179,7 +179,7 @@ const addRecord = async (req,res) =>{
         const label = ['车身','总装'].includes(type) ? '白车身码':'颜色码';
 
         // 分别插入公共信息和特殊信息
-        const insertResults = await Promise.allSettled([pool.query(queryPublic,[key,code.toUpperCase(),type,name,classes,speed,efficiency,group,flow,simple]),pool.query(querySpecial,[key,code,label,''])])
+        const insertResults = await Promise.allSettled([pool.query(queryPublic,[key,code.toUpperCase(),type,name.toUpperCase(),classes,speed,efficiency,group,flow,simple.toUpperCase()]),pool.query(querySpecial,[key,code,label,''])])
 
         const errors = insertResults.filter(result=>result.status==='rejected');
 
@@ -235,7 +235,7 @@ const updateRecord = async (req,res) =>{
             }
         }
 
-        await pool.query(query,[code,type,name,classes,speed,efficiency,group,flow,simple,key]);
+        await pool.query(query,[code.toUpperCase(),type,name.toUpperCase(),classes,speed,efficiency,group,flow,simple.toUpperCase(),key]);
         // 返回成功响应
         return res.status(200).json({
             msg:'操作成功',

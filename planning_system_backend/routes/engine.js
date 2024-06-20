@@ -51,7 +51,7 @@ const addDetail = async (req, res) => {
     try{
         let rowsRepeat = await pool.query(queryCode,[code]);
         if(rowsRepeat[0].length>0) throw new Error('生产线编号重复');
-        await pool.query(query,[key,code,stall,name]);
+        await pool.query(query,[key,code.toUpperCase(),stall,name.toUpperCase()]);
         res.status(200).json({
             msg:'操作成功',
             code:200,
@@ -73,7 +73,7 @@ const updateDetail = async (req, res) => {
     try{
         const queryRepeat = 'SELECT * FROM engine_detail WHERE `code`=?';
         const rowsRepeat = await pool.query(queryRepeat,[code]);
-        if (rowsRepeat[0].length>1){
+        if (rowsRepeat[0].length!==0){
             return res.status(400).json({
                 msg:'特殊发动机代码重复',
                 code:400,
@@ -88,7 +88,7 @@ const updateDetail = async (req, res) => {
         })
     }
     try{
-        await pool.query(query,[code,stall,name,key]);
+        await pool.query(query,[code.toUpperCase(),stall,name.toUpperCase(),key]);
         res.status(200).json({
             msg:'操作成功',
             code:200,

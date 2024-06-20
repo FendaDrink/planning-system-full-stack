@@ -91,17 +91,34 @@ const getDetailByOrderId = async (req, res) =>{
 
 /* 新增订单车信息记录 */
 const addDetail = async (req,res)=>{
-    let {orderId, year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark,} = req.body
+    let {orderId, year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark,} = req.body;
+    const queryRepeat = `SELECT * FROM car_detail WHERE orderId = ?`;
+    try{
+        const rows = await pool.query(queryRepeat,[orderId])
+        if(rows[0].length>0){
+            return res.status(400).json({
+                msg:'订单编号重复',
+                code:400,
+                data:''
+            })
+        }
+    }catch (err){
+        return res.status(500).json({
+            msg:'数据库错误',
+            code:500,
+            data:err.message
+        })
+    }
     const query = `INSERT INTO car_detail (orderId, year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?, ?, ?, ?)`;
     try {
-        await pool.query(query,[orderId, year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark])
-        res.status(200).json({
+        await pool.query(query,[orderId.toUpperCase(), year, inTime, type, airCode.toUpperCase(), colorCode, batchNum.toUpperCase(), carNum, varietyCode.toUpperCase(), carCode.toUpperCase(), stall, engineCode.toUpperCase(), customer, orderBatchNum.toUpperCase(), requirements, remark])
+        return res.status(200).json({
             msg:'操作成功',
             code:200,
             data:""
         })
     }catch (err){
-        res.status(500).json({
+        return res.status(500).json({
             msg:'数据库错误',
             code:500,
             data:err.message
@@ -112,9 +129,11 @@ const addDetail = async (req,res)=>{
 /* 修改订单车信息记录 */
 const updateDetail = async (req,res)=>{
     const {orderId, year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark} = req.body
-    const query = `UPDATE car_detail SET year = ?, inTime = ?, type = ?, airCode = ?, colorCode = ?, batchNum = ?, carNum = ?, varietyCode = ?, carCode = ?, stall = ?, engineCode = ?, customer = ?, orderBatchNum = ?, requirements = ?, remark = ? WHERE orderId = ?`;
+    const query = `UPDATE car_detail SET orderId=?, year = ?, inTime = ?, type = ?, airCode = ?, colorCode = ?, batchNum = ?, carNum = ?, varietyCode = ?, carCode = ?, stall = ?, engineCode = ?, customer = ?, orderBatchNum = ?, requirements = ?, remark = ? WHERE orderId = ?`;
+    let newOrderId = orderId
+    if(orderId!=='0'+year+batchNum) newOrderId = '0'+year+batchNum
     try {
-        await pool.query(query,[year, inTime, type, airCode, colorCode, batchNum, carNum, varietyCode, carCode, stall, engineCode, customer, orderBatchNum, requirements, remark, orderId])
+        await pool.query(query,[newOrderId.toUpperCase(),year, inTime, type, airCode.toUpperCase(), colorCode, batchNum.toUpperCase(), carNum, varietyCode.toUpperCase(), carCode.toUpperCase(), stall, engineCode.toUpperCase(), customer, orderBatchNum.toUpperCase(), requirements, remark, orderId])
         res.status(200).json({
             msg:'操作成功',
             code:200,
@@ -149,10 +168,28 @@ const deleteDetail = async (req,res)=>{
     }
 }
 
+/* 批量删除订单车信息记录 */
+const deleteDetailBatch = async (req,res)=>{
+    const orderIds = req.body.orderIds
+    const query = 'DELETE FROM car_detail WHERE `orderId` IN (?)';
+    try {
+        await pool.query(query,[orderIds])
+        res.status(200).json({
+            msg:'操作成功',
+            code:200,
+            data:""
+        })
+    }catch (err){
+        res.status(500).json({
+            msg:'数据库错误',
+            code:500,
+        })
+    }
+}
+
 /* 文件上传 */
 const uploadFile = async (req, res) => {
     try{
-        console.log(req.file)
         if (!req.file) {
             return res.status(400).json({
                 msg: 'No file uploaded',
@@ -164,7 +201,7 @@ const uploadFile = async (req, res) => {
         // 读取上传的 xls 文件
         const filePath = req.file.path;
         const workbook = xlsx.readFile(filePath);
-        const sheetName = workbook.SheetNames[0]; // 假设只有一个工作表
+        const sheetName = workbook.SheetNames[0]; // 第一个工作表
         const worksheet = workbook.Sheets[sheetName];
         const tableData = xlsx.utils.sheet_to_json(worksheet,{
             raw:false,
@@ -196,15 +233,24 @@ const uploadFile = async (req, res) => {
                 orderBatchNum:orderBatchNum,
                 requirements:item['__EMPTY_2'],
                 remark:item['__EMPTY_6']
-        })
+            })
         }
-        // 可以在这里对读取到的数据进行进一步处理
+
+        const uniqueData = result.reduce((acc, current) => {
+            // 使用一个 Set 来跟踪已处理的 orderId
+            const seenOrderIds = acc.map(item => item.orderId);
+            if (!seenOrderIds.includes(current.orderId)) {
+                acc.push(current);
+            }
+            return acc;
+        }, []);
+
         fs.unlinkSync(filePath); // 删除上传的文件
 
         return res.status(200).json({
-            msg: 'File uploaded successfully and processed',
+            msg: '上传成功',
             code: 200,
-            data: result
+            data: uniqueData
         });
 
     }catch (err){
@@ -218,9 +264,6 @@ router.get('/',auth,getTitleAndDetail);
 /* 通过orderId获取公共信息列表 */
 router.get('/:orderId',auth,getDetailByOrderId);
 
-/* 文件上传 */
-router.post('/upload',auth,upload.single('file'),uploadFile);
-
 /* 新增订单车信息记录 */
 router.post('/',auth,addDetail);
 
@@ -229,5 +272,11 @@ router.patch('/',auth,updateDetail);
 
 /* 删除订单车信息记录 */
 router.delete('/:orderId',auth,deleteDetail);
+
+/* 批量删除订单车信息记录 */
+router.post('/deleteBatch',auth,deleteDetailBatch);
+
+/* 文件上传 */
+router.post('/upload',auth,upload.single('file'),uploadFile);
 
 module.exports = router;
